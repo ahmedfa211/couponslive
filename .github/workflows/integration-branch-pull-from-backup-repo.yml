@@ -28,10 +28,10 @@ jobs:
 
       - name: Sync changes
         run: |
-          # Copy all files from private-backup-of-payload to couponslive-repo (excluding .git)
-          rsync -av --exclude='.git' ./private-backup-of-payload/ ./couponslive-repo/
+          # Copy all files from private-backup-of-payload to couponslive (excluding .git)
+          rsync -av --exclude='.git' ./private-backup-of-payload/ ./couponslive/
           
-          # Go to couponslive repo
+          # Go to couponslive directory
           cd couponslive
           
           # Set the remote URL with token authentication
