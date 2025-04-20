@@ -1,0 +1,31 @@
+name: Manual Sync from Backup
+
+on:
+  workflow_dispatch:  # Only run manually via GitHub Actions UI
+
+jobs:
+  sync-template:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Integration Branch
+        uses: actions/checkout@v3
+        with:
+          ref: integration
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Clone Backup Repo
+        run: |
+          git clone --depth=1 https://github.com/ahmedfa211/private-backup-of-payload.git backup-repo
+
+      - name: Copy Template Files
+        run: |
+          cp -r backup-repo/templates/with-vercel-website/* .
+
+      - name: Commit & Push to Integration
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Manual sync from backup (with-vercel-website)" || echo "No changes to commit"
+          git push origin integration
