@@ -2,9 +2,8 @@ name: Sync Backup to CouponsLive Integration
 
 on:
   # Trigger when changes are pushed to the backup repo
-  push:
-    branches:
-      - main  # Adjust this if your primary branch has a different name
+    workflow_dispatch:
+
 
 jobs:
   sync-repos:
