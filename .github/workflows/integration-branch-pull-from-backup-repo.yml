@@ -16,7 +16,7 @@ jobs:
       # Step 2: Clone the target repository (couponslive)
       - name: Clone Couponslive Repository
         run: |
-          git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/ahmedfa211/couponslive.git couponslive
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/couponslive.git couponslive
           cd couponslive
           git checkout integration
 
