@@ -21,7 +21,7 @@ jobs:
         with:
           repository: ahmedfa211/couponslive  # Using your actual username
           path: couponslive-repo
-          token: ${{ secrets.PAT_TOKEN }}  # Personal Access Token with repo scope
+          token: ${{ secrets.GH_PAT }}  # Personal Access Token with repo scope
           ref: integration  # Target branch in couponslive repo
 
       - name: Configure Git
