@@ -1,4 +1,4 @@
-name: Sync from Backup to Integration Branch
+name: Sync Backup to Integration Branch
 
 on:
   workflow_dispatch:
@@ -6,56 +6,41 @@ on:
 jobs:
   sync-repos:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout couponslive repository (integration branch)
-        uses: actions/checkout@v3
-        with:
-          path: couponslive
-          ref: integration  # Explicitly checkout the integration branch
-          token: ${{ secrets.GH_PAT }}  # Provide the token for authentication
+      # Step 1: Clone the source repository (private-backup-of-payload)
+      - name: Clone Private Backup Repository
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git private-backup
 
-      - name: Checkout private-backup-of-payload repository
-        uses: actions/checkout@v3
-        with:
-          repository: ahmedfa211/private-backup-of-payload
-          path: private-backup-of-payload
-          token: ${{ secrets.GH_PAT }}
+      # Step 2: Clone the target repository (couponslive)
+      - name: Clone Couponslive Repository
+        run: |
+          git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/ahmedfa211/couponslive.git couponslive
+          cd couponslive
+          git checkout integration
 
+      # Step 3: Configure Git
       - name: Configure Git
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions@users.noreply.github.com"
 
-      - name: Debug Git Remote and Branch
+      # Step 4: Sync Changes
+      - name: Sync Changes
         run: |
-          cd couponslive
-          echo "### Debugging Git Remote ###"
-          git remote -v
-          echo "### Debugging Current Branch ###"
-          git branch
+          # Copy all files from private-backup to couponslive (excluding .git)
+          rsync -av --exclude='.git' ./private-backup/ ./couponslive/
 
-      - name: Sync changes
-        run: |
-          # Copy all files from private-backup-of-payload to couponslive (excluding .git)
-          rsync -av --exclude='.git' ./private-backup-of-payload/ ./couponslive/
-          
-          # Go to couponslive directory
+          # Move into the couponslive directory
           cd couponslive
-          
-          # Set the remote URL with token authentication
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/ahmedfa211/couponslive.git
-          
-          # Debug the new remote URL
-          echo "### Debugging New Remote URL ###"
-          git remote -v
-          
+
           # Check if there are changes to commit
           if [[ -n $(git status --porcelain) ]]; then
-            # Add, commit, and push changes
+            echo "Changes detected. Committing and pushing updates."
             git add .
-            git commit -m "Sync changes from private-backup-of-payload repo"
-            # Explicitly push to integration branch
+            git commit -m "Sync updates from private-backup-of-payload"
             git push origin integration
           else
-            echo "No changes to sync"
+            echo "No changes to sync."
           fi
