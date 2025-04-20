@@ -1,4 +1,4 @@
-name: Manual Sync from Backup
+name: Manual Sync from Backup To Integration Branch
 
 on:
   workflow_dispatch:  # Only run manually via GitHub Actions UI
