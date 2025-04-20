@@ -1,28 +1,24 @@
-name: Sync Backup to CouponsLive Integration
+name: Sync from Backup to Integration Branch
 
 on:
-  # Trigger when changes are pushed to the backup repo
-    workflow_dispatch:
-
+  workflow_dispatch:
 
 jobs:
   sync-repos:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout couponslive repository (integration branch)
+        uses: actions/checkout@v3
+        with:
+          path: couponslive-repo
+          ref: integration  # Explicitly checkout the integration branch
+
       - name: Checkout private-backup-of-payload repository
         uses: actions/checkout@v3
         with:
+          repository: ahmedfa211/private-backup-of-payload
           path: private-backup-of-payload
-          # Use the repository where this workflow file is located
-          # No need for additional parameters as this is the default repo
-
-      - name: Checkout couponslive repository
-        uses: actions/checkout@v3
-        with:
-          repository: ahmedfa211/couponslive  # Using your actual username
-          path: couponslive-repo
-          token: ${{ secrets.PAT_TOKEN }}  # Personal Access Token with repo scope
-          ref: integration  # Target branch in couponslive repo
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure Git
         run: |
@@ -42,6 +38,7 @@ jobs:
             # Add, commit and push changes
             git add .
             git commit -m "Sync changes from private-backup-of-payload repo"
+            # Explicitly push to integration branch
             git push origin integration
           else
             echo "No changes to sync"
