@@ -12,6 +12,7 @@ jobs:
         with:
           path: couponslive-repo
           ref: integration  # Explicitly checkout the integration branch
+          token: ${{ secrets.GH_PAT}}
 
       - name: Checkout private-backup-of-payload repository
         uses: actions/checkout@v3
