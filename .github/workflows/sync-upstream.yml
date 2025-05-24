@@ -1,0 +1,165 @@
+# .github/workflows/sync-upstream.yml
+name: Sync Upstream Template
+
+on:
+  # Run weekly on Mondays at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * 1'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Add upstream remote
+      run: |
+        git remote add upstream https://github.com/payloadcms/payload.git || true
+        git remote -v
+    
+    - name: Fetch upstream changes
+      run: |
+        git fetch upstream
+        git fetch origin
+    
+    - name: Create or checkout integration branch
+      run: |
+        # Create integration branch if it doesn't exist
+        if ! git show-ref --verify --quiet refs/heads/integration; then
+          echo "Creating integration branch..."
+          git checkout -b integration
+          git push origin integration
+        else
+          echo "Checking out existing integration branch..."
+          git checkout integration
+          git pull origin integration
+        fi
+    
+    - name: Check for upstream changes
+      id: check_changes
+      run: |
+        # Get the path to the template directory in upstream
+        TEMPLATE_PATH="templates/with-vercel-website"
+        
+        # Get latest commit hash from upstream template directory
+        UPSTREAM_HASH=$(git log -1 --format="%H" upstream/main -- $TEMPLATE_PATH)
+        
+        # Get the last synced hash (stored in a file)
+        if [ -f .github/last-sync-hash ]; then
+          LAST_HASH=$(cat .github/last-sync-hash)
+        else
+          LAST_HASH=""
+        fi
+        
+        echo "Upstream hash: $UPSTREAM_HASH"
+        echo "Last synced hash: $LAST_HASH"
+        
+        if [ "$UPSTREAM_HASH" != "$LAST_HASH" ] || [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+          echo "changes_detected=true" >> $GITHUB_OUTPUT
+          echo "upstream_hash=$UPSTREAM_HASH" >> $GITHUB_OUTPUT
+        else
+          echo "changes_detected=false" >> $GITHUB_OUTPUT
+          echo "No changes detected in upstream template"
+        fi
+    
+    - name: Sync template changes
+      if: steps.check_changes.outputs.changes_detected == 'true'
+      run: |
+        # Create a temporary directory for the template
+        mkdir -p temp-template
+        
+        # Extract only the template directory from upstream
+        git archive upstream/main templates/with-vercel-website | tar -x -C temp-template --strip-components=2
+        
+        # Copy template files to root (excluding .git)
+        rsync -av temp-template/ . --exclude='.git*'
+        
+        # Clean up
+        rm -rf temp-template
+        
+        # Stage all changes
+        git add .
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No actual file changes detected"
+        else
+          # Commit changes
+          git commit -m "🔄 Sync with upstream template ($(date +'%Y-%m-%d'))"
+          
+          # Update the sync hash file
+          mkdir -p .github
+          echo "${{ steps.check_changes.outputs.upstream_hash }}" > .github/last-sync-hash
+          git add .github/last-sync-hash
+          git commit -m "📝 Update sync hash"
+          
+          # Push changes
+          git push origin integration
+          
+          echo "✅ Successfully synced changes to integration branch"
+        fi
+    
+    - name: Create Pull Request
+      if: steps.check_changes.outputs.changes_detected == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: integration
+        base: main
+        title: "🔄 Upstream Template Sync - $(date +'%Y-%m-%d')"
+        body: |
+          ## 🔄 Automatic Upstream Sync
+          
+          This PR contains updates from the official Payload template:
+          - **Source**: https://github.com/payloadcms/payload/tree/main/templates/with-vercel-website
+          - **Sync Date**: $(date +'%Y-%m-%d %H:%M:%S UTC')
+          - **Upstream Commit**: ${{ steps.check_changes.outputs.upstream_hash }}
+          
+          ### 📋 What to do:
+          1. **Review the changes** in the Files tab
+          2. **Test locally** if needed:
+             ```bash
+             git checkout integration
+             npm install
+             npm run dev
+             ```
+          3. **Merge this PR** when you're ready to apply the updates
+          
+          ### ⚠️ Important Notes:
+          - Review changes carefully before merging
+          - Test your customizations still work
+          - This sync may include breaking changes
+          
+          ---
+          *This PR was created automatically by GitHub Actions*
+        labels: |
+          sync
+          upstream
+          automated
+    
+    - name: Summary
+      run: |
+        if [ "${{ steps.check_changes.outputs.changes_detected }}" = "true" ]; then
+          echo "✅ Sync completed - PR created for review"
+        else
+          echo "ℹ️ No changes detected - repository is up to date"
+        fi
