@@ -1,46 +1,30 @@
-name: Sync Backup to Integration Branch
+name: Sync Template from Private Backup
 
 on:
   workflow_dispatch:
 
 jobs:
-  sync-repos:
+  sync-template:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Clone the source repository (private-backup-of-payload)
-      - name: Clone Private Backup Repository
+      - name: Checkout couponslive repo (integration branch)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Fetch folder from backup repo
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git private-backup
+          git clone --depth 1 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git temp
+          rm -rf templates/with-vercel-website
+          mkdir -p templates
+          mv temp/templates/with-vercel-website templates/
+          rm -rf temp
 
-      # Step 2: Clone the target repository (couponslive)
-      - name: Clone Couponslive Repository
+      - name: Commit and push to integration branch
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/couponslive.git couponslive
-          cd couponslive
-          git checkout integration
-
-      # Step 3: Configure Git
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions@users.noreply.github.com"
-
-      # Step 4: Sync Changes
-      - name: Sync Changes
-        run: |
-          # Copy all files from private-backup to couponslive (excluding .git)
-          rsync -av --exclude='.git' ./private-backup/ ./couponslive/
-
-          # Move into the couponslive directory
-          cd couponslive
-
-          # Check if there are changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "Changes detected. Committing and pushing updates."
-            git add .
-            git commit -m "Sync updates from private-backup-of-payload"
-            git push origin integration
-          else
-            echo "No changes to sync."
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add templates/with-vercel-website
+          git commit -m "Manual sync from private backup" || exit 0
+          git push origin integration
