@@ -20,12 +20,29 @@ jobs:
           cd backup
           git sparse-checkout set templates/with-vercel-website
           cd ..
-
+    
       - name: Replace current repo contents with the template
-        run: |
-          rm -rf ./* .[^.] .??*
-          cp -r backup/templates/with-vercel-website/* ./
-          rm -rf backup
+  run: |
+    if [ -d "backup/templates/with-vercel-website" ]; then
+      echo "✅ Copying template to root..."
+      rm -rf ./* .[^.]* || true
+      rsync -av backup/templates/with-vercel-website/ ./
+    else
+      echo "❌ Folder not found: backup/templates/with-vercel-website"
+      exit 1
+        fi
+
+  run: |
+    if [ -d "backup/templates/with-vercel-website" ]; then
+      echo "✅ Copying template to root..."
+      rm -rf ./* .[^.]* || true
+      rsync -av backup/templates/with-vercel-website/ ./
+    else
+      echo "❌ Folder not found: backup/templates/with-vercel-website"
+      exit 1
+    fi
+
+
 
       - name: Commit and push if changes
         run: |
