@@ -18,13 +18,16 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Configure Git
       run: |
@@ -82,6 +85,7 @@ jobs:
         fi
     
     - name: Sync template changes
+      id: sync
       if: steps.check_changes.outputs.changes_detected == 'true'
       run: |
         # Create a temporary directory for the template
@@ -102,6 +106,7 @@ jobs:
         # Check if there are changes to commit
         if git diff --staged --quiet; then
           echo "No actual file changes detected"
+          echo "file_changes=false" >> $GITHUB_OUTPUT
         else
           # Commit changes
           git commit -m "🔄 Sync with upstream template ($(date +'%Y-%m-%d'))"
@@ -116,13 +121,14 @@ jobs:
           git push origin integration
           
           echo "✅ Successfully synced changes to integration branch"
+          echo "file_changes=true" >> $GITHUB_OUTPUT
         fi
     
     - name: Create Pull Request
-      if: steps.check_changes.outputs.changes_detected == 'true'
+      if: steps.check_changes.outputs.changes_detected == 'true' && steps.sync.outputs.file_changes == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         branch: integration
         base: main
         title: "🔄 Upstream Template Sync - $(date +'%Y-%m-%d')"
@@ -158,8 +164,10 @@ jobs:
     
     - name: Summary
       run: |
-        if [ "${{ steps.check_changes.outputs.changes_detected }}" = "true" ]; then
+        if [ "${{ steps.check_changes.outputs.changes_detected }}" = "true" ] && [ "${{ steps.sync.outputs.file_changes }}" = "true" ]; then
           echo "✅ Sync completed - PR created for review"
+        elif [ "${{ steps.check_changes.outputs.changes_detected }}" = "true" ]; then
+          echo "ℹ️ Upstream changes detected but no actual file differences found"
         else
           echo "ℹ️ No changes detected - repository is up to date"
         fi
