@@ -14,22 +14,31 @@ jobs:
           ref: integration
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Init sparse checkout of backup repo folder
+      - name: Sparse-checkout from private-backup-of-payload
         run: |
           mkdir sparse-source
           cd sparse-source
           git init
           git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git
+          
+          # Enable sparse-checkout and set path
           git config core.sparseCheckout true
-          echo "templates/with-vercel-website/" >> .git/info/sparse-checkout
+          echo "templates/with-vercel-website/" > .git/info/sparse-checkout
+          
+          # Explicitly pull only that folder
           git pull origin main
           cd ..
 
       - name: Sync templates/with-vercel-website to root
         run: |
-          echo "✅ Copying template to root..."
-          rm -rf ./*
-          rsync -a sparse-source/templates/with-vercel-website/ ./
+          if [ -d "sparse-source/templates/with-vercel-website" ]; then
+            echo "✅ Template found. Copying to root..."
+            rm -rf ./*
+            rsync -a sparse-source/templates/with-vercel-website/ ./
+          else
+            echo "❌ Folder not found after sparse-checkout"
+            exit 1
+          fi
 
       - name: Commit and push changes
         run: |
