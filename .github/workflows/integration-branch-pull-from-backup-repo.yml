@@ -1,4 +1,4 @@
-name: Sync Template from Private Backup (Sparse)
+name: Sync Template from Private Backup
 
 on:
   workflow_dispatch:
@@ -8,42 +8,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout couponslive (integration branch)
+      - name: Checkout integration branch of couponslive
         uses: actions/checkout@v4
         with:
           ref: integration
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Sparse-checkout from private-backup-of-payload
+      - name: Fetch folder from private backup
         run: |
-          mkdir sparse-source
-          cd sparse-source
-          git init
-          git remote add origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git
-          
-          # Enable sparse-checkout and set path
-          git config core.sparseCheckout true
-          echo "templates/with-vercel-website/" > .git/info/sparse-checkout
-          
-          # Explicitly pull only that folder
-          git pull origin main
+          git clone --depth=1 --filter=blob:none --sparse https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git backup
+          cd backup
+          git sparse-checkout set templates/with-vercel-website
           cd ..
+          rm -rf ./*
+          cp -r backup/templates/with-vercel-website/* ./
+          rm -rf backup
 
-      - name: Sync templates/with-vercel-website to root
-        run: |
-          if [ -d "sparse-source/templates/with-vercel-website" ]; then
-            echo "✅ Template found. Copying to root..."
-            rm -rf ./*
-            rsync -a sparse-source/templates/with-vercel-website/ ./
-          else
-            echo "❌ Folder not found after sparse-checkout"
-            exit 1
-          fi
-
-      - name: Commit and push changes
+      - name: Commit and push if changes exist
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions@users.noreply.github.com"
           git add .
-          git commit -m "Synced template using sparse checkout" || echo "No changes to commit."
+          git diff --cached --quiet || git commit -m "Synced with latest template from backup"
           git push origin integration
