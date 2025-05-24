@@ -6,25 +6,29 @@ on:
 jobs:
   sync-template:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout couponslive repo (integration branch)
+      - name: Clone couponslive (integration branch)
         uses: actions/checkout@v4
         with:
           ref: integration
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Fetch folder from backup repo
+      - name: Clone private-backup-of-payload
         run: |
-          git clone --depth 1 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git temp
-          rm -rf templates/with-vercel-website
-          mkdir -p templates
-          mv temp/templates/with-vercel-website templates/
-          rm -rf temp
+          git clone --depth 1 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git temp-backup
 
-      - name: Commit and push to integration branch
+      - name: Replace root with template contents
+        run: |
+          rm -rf ./*
+          cp -r temp-backup/templates/with-vercel-website/* .
+          cp -r temp-backup/templates/with-vercel-website/.* . || true  # Copy dotfiles like .env, .gitignore, etc.
+          rm -rf temp-backup
+
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions@users.noreply.github.com"
-          git add templates/with-vercel-website
-          git commit -m "Manual sync from private backup" || exit 0
+          git add .
+          git commit -m "Manual sync from private-backup-of-payload to integration root" || exit 0
           git push origin integration
