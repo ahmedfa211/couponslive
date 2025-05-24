@@ -1,4 +1,4 @@
-name: Sync Template from Private Backup
+name: Sync Template from Backup
 
 on:
   workflow_dispatch:
@@ -14,20 +14,23 @@ jobs:
           ref: integration
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Fetch folder from private backup
+      - name: Pull only the required folder from backup
         run: |
           git clone --depth=1 --filter=blob:none --sparse https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git backup
           cd backup
           git sparse-checkout set templates/with-vercel-website
           cd ..
-          rm -rf ./*
+
+      - name: Replace current repo contents with the template
+        run: |
+          rm -rf ./* .[^.] .??*
           cp -r backup/templates/with-vercel-website/* ./
           rm -rf backup
 
-      - name: Commit and push if changes exist
+      - name: Commit and push if changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions@users.noreply.github.com"
           git add .
-          git diff --cached --quiet || git commit -m "Synced with latest template from backup"
+          git diff --cached --quiet || git commit -m "Sync: template updated from backup"
           git push origin integration
