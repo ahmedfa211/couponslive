@@ -1,0 +1,32 @@
+name: Sync Template from Private Backup
+
+on:
+  schedule:
+    - cron: '0 3 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  sync-template:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout couponslive repo (integration branch)
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Fetch folder from backup repo
+        run: |
+          git clone --depth 1 https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/ahmedfa211/private-backup-of-payload.git temp
+          rm -rf templates/with-vercel-website
+          mkdir -p templates
+          mv temp/templates/with-vercel-website templates/
+          rm -rf temp
+
+      - name: Commit and push to integration branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add templates/with-vercel-website
+          git commit -m "Sync template from private backup" || exit 0
+          git push origin integration
